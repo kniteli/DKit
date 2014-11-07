@@ -177,6 +177,23 @@ class DCD(sublime_plugin.EventListener):
         response = self.request_completions(view.substr(sublime.Region(0, view.size())), position)
         return (response, sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS)
 
+    #hack to make function suggestions work
+    def on_modified(self, view):
+        region = view.sel()[0]
+
+        # check if we already have the auto completion window up
+        # this is to prevent the forced open auto complete window from sticking
+        # when you delete its trigger (the "(" string in this case)
+        # also don't hide it if the char immediately before cursor is the trigger
+        if region.size() == 0 and self.forced_auto_complete_running and not '(' == view.substr(sublime.Region(region.begin() - 1, region.end())):
+            self.forced_auto_complete_running = False
+            view.window().run_command("hide_auto_complete")
+        elif region.size() == 0 and '(' == view.substr(sublime.Region(region.begin() - 1, region.end())):
+            if view.scope_name(region.begin()).find("string.quoted") == -1:
+                self.forced_auto_complete_running = True
+                view.window().run_command("auto_complete")
+
+
     def request_completions(self, file, position):
         args = ['"%s"' % client_path, '-c' + str(position), '-p' + str(server_port)]
         client = Popen(get_shell_args(args), stdin=PIPE, stdout=PIPE, shell=True)
